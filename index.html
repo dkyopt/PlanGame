@@ -11,50 +11,37 @@
 </head>
 <body>
     <canvas id="gameCanvas" width="480" height="700"></canvas>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Game settings
+        // 游戏设置
         const SCREEN_WIDTH = 480;
         const SCREEN_HEIGHT = 700;
         const PLAYER_SPEED = 5;
         const BULLET_SPEED = 5;
-        const ENEMY_MIN_SPEED = 2;
-        const ENEMY_MAX_SPEED = 5;
 
-        // Load images
+        // 加载资源
         const playerImg = new Image();
         playerImg.src = 'figures/player.png';
-        const bulletImg = new Image();
-        bulletImg.src = 'figures/bullet.png';
-        const enemy1Img = new Image();
-        enemy1Img.src = 'figures/enemy1.jpg';
-        const enemy2Img = new Image();
-        enemy2Img.src = 'figures/enemy2.jpg';
-        const boomImg = new Image();
-        boomImg.src = 'figures/boom.jpg';
 
         let keys = {};
         let bullets = [];
         let enemies = [];
         let score = 0;
 
-        // Player class
+        // 玩家类
         class Player {
             constructor() {
                 this.width = 50;
                 this.height = 60;
                 this.x = (SCREEN_WIDTH - this.width) / 2;
                 this.y = SCREEN_HEIGHT - this.height - 10;
-                this.powerUp = false;
-                this.hitOnce = false;
             }
-
             draw() {
                 ctx.drawImage(playerImg, this.x, this.y, this.width, this.height);
             }
-
             move() {
                 if (keys['ArrowLeft'] && this.x > 0) this.x -= PLAYER_SPEED;
                 if (keys['ArrowRight'] && this.x + this.width < SCREEN_WIDTH) this.x += PLAYER_SPEED;
@@ -63,126 +50,27 @@
             }
         }
 
-        // Bullet class
-        class Bullet {
-            constructor(x, y) {
-                this.width = 10;
-                this.height = 10;
-                this.x = x - this.width / 2;
-                this.y = y;
-            }
-
-            draw() {
-                ctx.drawImage(bulletImg, this.x, this.y, this.width, this.height);
-            }
-
-            update() {
-                this.y -= BULLET_SPEED;
-            }
-        }
-
-        // Enemy class
-        class Enemy {
-            constructor() {
-                this.type = Math.random() > 0.5 ? 'big' : 'small';
-                if (this.type === 'big') {
-                    this.width = 100;
-                    this.height = 120;
-                    this.health = 3;
-                    this.image = enemy1Img;
-                } else {
-                    this.width = 40;
-                    this.height = 50;
-                    this.health = 1;
-                    this.image = enemy2Img;
-                }
-                this.x = Math.random() * (SCREEN_WIDTH - this.width);
-                this.y = -this.height;
-                this.speedY = ENEMY_MIN_SPEED + Math.random() * (ENEMY_MAX_SPEED - ENEMY_MIN_SPEED);
-                this.speedX = Math.random() > 0.5 ? 2 : -2;
-                this.isExploding = false;
-            }
-
-            draw() {
-                ctx.drawImage(this.isExploding ? boomImg : this.image, this.x, this.y, this.width, this.height);
-            }
-
-            update() {
-                this.y += this.speedY;
-                this.x += this.speedX;
-                if (this.x <= 0 || this.x + this.width >= SCREEN_WIDTH) {
-                    this.speedX *= -1;
-                }
-            }
-
-            hit() {
-                this.health -= 1;
-                if (this.health <= 0) this.isExploding = true;
-            }
-        }
-
-        // Game loop
         const player = new Player();
-        setInterval(() => enemies.push(new Enemy()), 1000);
 
+        // 游戏主循环
         function gameLoop() {
             ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
             player.move();
             player.draw();
-
-            bullets.forEach((bullet, index) => {
-                bullet.update();
-                bullet.draw();
-                if (bullet.y < 0) bullets.splice(index, 1);
-            });
-
-            enemies.forEach((enemy, eIndex) => {
-                enemy.update();
-                enemy.draw();
-
-                if (enemy.y > SCREEN_HEIGHT) enemies.splice(eIndex, 1);
-
-                // Check collision with bullets
-                bullets.forEach((bullet, bIndex) => {
-                    if (bullet.x < enemy.x + enemy.width && bullet.x + bullet.width > enemy.x && bullet.y < enemy.y + enemy.height && bullet.y + bullet.height > enemy.y) {
-                        enemy.hit();
-                        bullets.splice(bIndex, 1);
-                        if (enemy.isExploding) {
-                            setTimeout(() => enemies.splice(eIndex, 1), 200);
-                            score += enemy.type === 'big' ? 20 : 5;
-                        }
-                    }
-                });
-
-                // Check collision with player
-                if (player.x < enemy.x + enemy.width && player.x + player.width > enemy.x && player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
-                    if (player.powerUp) {
-                        player.powerUp = false;
-                    } else if (!player.hitOnce) {
-                        player.hitOnce = true;
-                    } else {
-                        alert('Game Over! Your score: ' + score);
-                        document.location.reload();
-                    }
-                    enemies.splice(eIndex, 1);
-                }
-            });
-
-            ctx.fillStyle = 'white';
-            ctx.font = '20px Arial';
-            ctx.fillText('Score: ' + score, 10, 30);
-
             requestAnimationFrame(gameLoop);
         }
 
-        window.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-            if (e.key === ' ') bullets.push(new Bullet(player.x + player.width / 2, player.y));
-        });
+        // 页面加载完成后直接启动游戏
+        window.onload = function() {
+            gameLoop();
+            document.documentElement.requestFullscreen().catch((err) => {
+                console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+        };
 
+        // 键盘事件监听
+        window.addEventListener('keydown', (e) => keys[e.key] = true);
         window.addEventListener('keyup', (e) => keys[e.key] = false);
-
-        gameLoop();
     </script>
 </body>
 </html>
