@@ -16,10 +16,36 @@
             background: url('figures/background.png') no-repeat center center;
             background-size: cover;
         }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .btn {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas" width="480" height="700"></canvas>
+    <div class="controls">
+        <div class="btn" id="up">🔼</div>
+        <div class="btn" id="left">◀️</div>
+        <div class="btn" id="shoot">🔫</div>
+        <div class="btn" id="right">▶️</div>
+        <div class="btn" id="down">🔽</div>
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -89,8 +115,6 @@
                 } else {
                     if (!this.cryDisplayed) {
                         this.image = cryImg;
-this.width = 50;  // 确保cry图片与player图片大小一致
-this.height = 60;
                         this.cryDisplayed = true;
                     }
                     gameOver = true;
@@ -217,7 +241,7 @@ this.height = 60;
                 }
                 if (checkCollision(player, enemy)) {
                     player.downgrade();
-                    if (gameOver) player.draw();  // 强制重绘确保cry图像显示
+                    if (gameOver) player.draw();
                 }
             });
 
@@ -257,22 +281,42 @@ this.height = 60;
             if (Math.random() < 0.6) foods.push(new Food());
         }, 5000);
 
+        // Keyboard controls
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (e.key === ' ' && !gameOver) {
-                if (player.powerUp) {
-                    bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
-                    bullets.push(new Bullet(player.x + player.width / 2, player.y, 0));
-                    bullets.push(new Bullet(player.x + player.width / 2, player.y, 1));
-                } else {
-                    bullets.push(new Bullet(player.x + player.width / 2, player.y));
-                }
+                shoot();
             }
         });
 
         window.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
+
+        // Touch controls
+        document.getElementById('left').addEventListener('touchstart', () => keys['ArrowLeft'] = true);
+        document.getElementById('left').addEventListener('touchend', () => keys['ArrowLeft'] = false);
+
+        document.getElementById('right').addEventListener('touchstart', () => keys['ArrowRight'] = true);
+        document.getElementById('right').addEventListener('touchend', () => keys['ArrowRight'] = false);
+
+        document.getElementById('up').addEventListener('touchstart', () => keys['ArrowUp'] = true);
+        document.getElementById('up').addEventListener('touchend', () => keys['ArrowUp'] = false);
+
+        document.getElementById('down').addEventListener('touchstart', () => keys['ArrowDown'] = true);
+        document.getElementById('down').addEventListener('touchend', () => keys['ArrowDown'] = false);
+
+        document.getElementById('shoot').addEventListener('touchstart', () => shoot());
+
+        function shoot() {
+            if (player.powerUp) {
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, 0));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, 1));
+            } else {
+                bullets.push(new Bullet(player.x + player.width / 2, player.y));
+            }
+        }
 
         gameLoop();
     </script>
