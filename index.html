@@ -15,30 +15,34 @@
             margin: auto;
             background: url('figures/background.png') no-repeat center center;
             background-size: cover;
+            width: 100vw;
+            height: 100vh;
         }
         .controls {
             position: fixed;
             bottom: 20px;
             width: 100%;
             display: flex;
-            justify-content: center;
-            gap: 20px;
+            justify-content: space-around;
+            gap: 10px;
         }
         .btn {
-            width: 60px;
-            height: 60px;
+            width: 15vw;
+            height: 15vw;
+            max-width: 60px;
+            max-height: 60px;
             background-color: rgba(255, 255, 255, 0.5);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 5vw;
             user-select: none;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="480" height="700"></canvas>
+    <canvas id="gameCanvas"></canvas>
     <div class="controls">
         <div class="btn" id="up">🔼</div>
         <div class="btn" id="left">◀️</div>
@@ -50,6 +54,14 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
         const PLAYER_SPEED = 5;
         const BULLET_SPEED = 7;
@@ -281,7 +293,6 @@
             if (Math.random() < 0.6) foods.push(new Food());
         }, 5000);
 
-        // Keyboard controls
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (e.key === ' ' && !gameOver) {
@@ -293,7 +304,6 @@
             keys[e.key] = false;
         });
 
-        // Touch controls
         document.getElementById('left').addEventListener('touchstart', () => keys['ArrowLeft'] = true);
         document.getElementById('left').addEventListener('touchend', () => keys['ArrowLeft'] = false);
 
