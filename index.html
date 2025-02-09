@@ -3,10 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plane Battle Game</title>
+    <title>Plane Shooter Game</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; background: black; }
-        canvas { display: block; margin: auto; background: url('figures/background.png') no-repeat center center; background-size: cover; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas {
+            display: block;
+            margin: auto;
+            background: url('figures/background.png') no-repeat center center;
+            background-size: cover;
+        }
     </style>
 </head>
 <body>
@@ -16,62 +25,173 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // 游戏设置
-        const SCREEN_WIDTH = 480;
-        const SCREEN_HEIGHT = 700;
         const PLAYER_SPEED = 5;
         const BULLET_SPEED = 5;
+        const ENEMY_MIN_SPEED = 2;
+        const ENEMY_MAX_SPEED = 5;
+        const ENEMY_SPAWN_TIME = 1000;
 
-        // 加载资源
+        let score = 0;
+        let keys = {};
+
         const playerImg = new Image();
         playerImg.src = 'figures/player.png';
 
-        let keys = {};
-        let bullets = [];
-        let enemies = [];
-        let score = 0;
+        const bulletImg = new Image();
+        bulletImg.src = 'figures/bullet.png';
 
-        // 玩家类
+        const enemyImg1 = new Image();
+        enemyImg1.src = 'figures/enemy1.jpg';
+
+        const enemyImg2 = new Image();
+        enemyImg2.src = 'figures/enemy2.jpg';
+
+        const boomImg = new Image();
+        boomImg.src = 'figures/boom.jpg';
+
+        const foodImg = new Image();
+        foodImg.src = 'figures/food.jpg';
+
         class Player {
             constructor() {
                 this.width = 50;
                 this.height = 60;
-                this.x = (SCREEN_WIDTH - this.width) / 2;
-                this.y = SCREEN_HEIGHT - this.height - 10;
+                this.x = canvas.width / 2 - this.width / 2;
+                this.y = canvas.height - this.height - 10;
+                this.powerUp = false;
+                this.hitOnce = false;
             }
+
             draw() {
                 ctx.drawImage(playerImg, this.x, this.y, this.width, this.height);
             }
+
             move() {
                 if (keys['ArrowLeft'] && this.x > 0) this.x -= PLAYER_SPEED;
-                if (keys['ArrowRight'] && this.x + this.width < SCREEN_WIDTH) this.x += PLAYER_SPEED;
+                if (keys['ArrowRight'] && this.x < canvas.width - this.width) this.x += PLAYER_SPEED;
                 if (keys['ArrowUp'] && this.y > 0) this.y -= PLAYER_SPEED;
-                if (keys['ArrowDown'] && this.y + this.height < SCREEN_HEIGHT) this.y += PLAYER_SPEED;
+                if (keys['ArrowDown'] && this.y < canvas.height - this.height) this.y += PLAYER_SPEED;
+            }
+
+            downgrade() {
+                if (this.powerUp) {
+                    this.powerUp = false;
+                } else if (!this.hitOnce) {
+                    this.hitOnce = true;
+                } else {
+                    playerImg.src = 'figures/cry.jpg';
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, direction = 0) {
+                this.x = x;
+                this.y = y;
+                this.width = 10;
+                this.height = 10;
+                this.direction = direction;
+            }
+
+            draw() {
+                ctx.drawImage(bulletImg, this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                this.y -= BULLET_SPEED;
+                if (this.direction === -1) this.x -= 2;
+                if (this.direction === 1) this.x += 2;
+            }
+        }
+
+        class Enemy {
+            constructor() {
+                const type = Math.random() > 0.5 ? enemyImg1 : enemyImg2;
+                this.image = type;
+                this.width = type === enemyImg1 ? 100 : 40;
+                this.height = type === enemyImg1 ? 120 : 50;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = -this.height;
+                this.speedY = Math.random() * (ENEMY_MAX_SPEED - ENEMY_MIN_SPEED) + ENEMY_MIN_SPEED;
+                this.speedX = Math.random() > 0.5 ? 2 : -2;
+                this.health = type === enemyImg1 ? 3 : 1;
+                this.exploding = false;
+            }
+
+            draw() {
+                ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                if (!this.exploding) {
+                    this.y += this.speedY;
+                    this.x += this.speedX;
+                    if (this.x <= 0 || this.x + this.width >= canvas.width) this.speedX *= -1;
+                }
+            }
+
+            hit() {
+                this.health--;
+                if (this.health <= 0) this.exploding = true;
             }
         }
 
         const player = new Player();
+        const bullets = [];
+        const enemies = [];
 
-        // 游戏主循环
         function gameLoop() {
-            ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-            player.move();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             player.draw();
+            player.move();
+
+            bullets.forEach((bullet, index) => {
+                bullet.update();
+                bullet.draw();
+                if (bullet.y + bullet.height < 0) bullets.splice(index, 1);
+            });
+
+            enemies.forEach((enemy, index) => {
+                enemy.update();
+                enemy.draw();
+                if (enemy.exploding) {
+                    ctx.drawImage(boomImg, enemy.x, enemy.y, enemy.width, enemy.height);
+                    setTimeout(() => enemies.splice(index, 1), 500);
+                    score += enemy.image === enemyImg1 ? 20 : 5;
+                }
+            });
+
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+
             requestAnimationFrame(gameLoop);
         }
 
-        // 页面加载完成后直接启动游戏
-        window.onload = function() {
-            gameLoop();
-            document.documentElement.requestFullscreen().catch((err) => {
-                console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
-        };
+        setInterval(() => {
+            enemies.push(new Enemy());
+        }, ENEMY_SPAWN_TIME);
 
-        // 键盘事件监听
-        window.addEventListener('keydown', (e) => keys[e.key] = true);
-        window.addEventListener('keyup', (e) => keys[e.key] = false);
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ') {
+                if (player.powerUp) {
+                    bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
+                    bullets.push(new Bullet(player.x + player.width / 2, player.y, 0));
+                    bullets.push(new Bullet(player.x + player.width / 2, player.y, 1));
+                } else {
+                    bullets.push(new Bullet(player.x + player.width / 2, player.y));
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        gameLoop();
     </script>
 </body>
 </html>
-<!-- Test for GitHub Pages Deployment -->
