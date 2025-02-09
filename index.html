@@ -26,16 +26,20 @@
         const ctx = canvas.getContext('2d');
 
         const PLAYER_SPEED = 5;
-        const BULLET_SPEED = 5;
+        const BULLET_SPEED = 7;
         const ENEMY_MIN_SPEED = 2;
         const ENEMY_MAX_SPEED = 5;
         const ENEMY_SPAWN_TIME = 1000;
 
         let score = 0;
+        let gameOver = false;
         let keys = {};
 
         const playerImg = new Image();
         playerImg.src = 'figures/player.png';
+
+        const cryImg = new Image();
+        cryImg.src = 'figures/cry.jpg';
 
         const bulletImg = new Image();
         bulletImg.src = 'figures/bullet.png';
@@ -60,17 +64,21 @@
                 this.y = canvas.height - this.height - 10;
                 this.powerUp = false;
                 this.hitOnce = false;
+                this.image = playerImg;
+                this.cryDisplayed = false;
             }
 
             draw() {
-                ctx.drawImage(playerImg, this.x, this.y, this.width, this.height);
+                ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
             }
 
             move() {
-                if (keys['ArrowLeft'] && this.x > 0) this.x -= PLAYER_SPEED;
-                if (keys['ArrowRight'] && this.x < canvas.width - this.width) this.x += PLAYER_SPEED;
-                if (keys['ArrowUp'] && this.y > 0) this.y -= PLAYER_SPEED;
-                if (keys['ArrowDown'] && this.y < canvas.height - this.height) this.y += PLAYER_SPEED;
+                if (!gameOver) {
+                    if (keys['ArrowLeft'] && this.x > 0) this.x -= PLAYER_SPEED;
+                    if (keys['ArrowRight'] && this.x < canvas.width - this.width) this.x += PLAYER_SPEED;
+                    if (keys['ArrowUp'] && this.y > 0) this.y -= PLAYER_SPEED;
+                    if (keys['ArrowDown'] && this.y < canvas.height - this.height) this.y += PLAYER_SPEED;
+                }
             }
 
             downgrade() {
@@ -79,10 +87,14 @@
                 } else if (!this.hitOnce) {
                     this.hitOnce = true;
                 } else {
-                    playerImg.src = 'figures/cry.jpg';
-                    return true;
+                    if (!this.cryDisplayed) {
+                        this.image = cryImg;
+this.width = 50;  // 确保cry图片与player图片大小一致
+this.height = 60;
+                        this.cryDisplayed = true;
+                    }
+                    gameOver = true;
                 }
-                return false;
             }
         }
 
@@ -91,7 +103,7 @@
                 this.x = x;
                 this.y = y;
                 this.width = 10;
-                this.height = 10;
+                this.height = 20;
                 this.direction = direction;
             }
 
@@ -117,11 +129,18 @@
                 this.speedY = Math.random() * (ENEMY_MAX_SPEED - ENEMY_MIN_SPEED) + ENEMY_MIN_SPEED;
                 this.speedX = Math.random() > 0.5 ? 2 : -2;
                 this.health = type === enemyImg1 ? 3 : 1;
+                this.scoreValue = type === enemyImg1 ? 20 : 5;
                 this.exploding = false;
+                this.explodeTimer = 10;
             }
 
             draw() {
-                ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+                if (this.exploding) {
+                    const size = this.width === 100 ? [100, 100] : [40, 40];
+                    ctx.drawImage(boomImg, this.x, this.y, ...size);
+                } else {
+                    ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+                }
             }
 
             update() {
@@ -129,6 +148,9 @@
                     this.y += this.speedY;
                     this.x += this.speedX;
                     if (this.x <= 0 || this.x + this.width >= canvas.width) this.speedX *= -1;
+                    if (this.y > canvas.height) this.exploding = true;
+                } else {
+                    this.explodeTimer--;
                 }
             }
 
@@ -138,28 +160,73 @@
             }
         }
 
+        class Food {
+            constructor() {
+                this.width = 30;
+                this.height = 30;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = Math.random() * (canvas.height / 2);
+                this.speedX = Math.random() > 0.5 ? 2 : -2;
+                this.speedY = Math.random() * 2 + 1;
+            }
+
+            draw() {
+                ctx.drawImage(foodImg, this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x <= 0 || this.x + this.width >= canvas.width) this.speedX *= -1;
+                if (this.y > canvas.height) foods.splice(foods.indexOf(this), 1);
+            }
+        }
+
         const player = new Player();
         const bullets = [];
         const enemies = [];
+        const foods = [];
 
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             player.draw();
             player.move();
 
-            bullets.forEach((bullet, index) => {
+            bullets.forEach((bullet, bulletIndex) => {
                 bullet.update();
                 bullet.draw();
-                if (bullet.y + bullet.height < 0) bullets.splice(index, 1);
+
+                enemies.forEach((enemy, enemyIndex) => {
+                    if (checkCollision(bullet, enemy) && !enemy.exploding) {
+                        enemy.hit();
+                        bullets.splice(bulletIndex, 1);
+                        if (enemy.exploding) {
+                            score += enemy.scoreValue;
+                        }
+                    }
+                });
+
+                if (bullet.y + bullet.height < 0) bullets.splice(bulletIndex, 1);
             });
 
             enemies.forEach((enemy, index) => {
                 enemy.update();
                 enemy.draw();
-                if (enemy.exploding) {
-                    ctx.drawImage(boomImg, enemy.x, enemy.y, enemy.width, enemy.height);
-                    setTimeout(() => enemies.splice(index, 1), 500);
-                    score += enemy.image === enemyImg1 ? 20 : 5;
+                if (enemy.exploding && enemy.explodeTimer <= 0) {
+                    enemies.splice(index, 1);
+                }
+                if (checkCollision(player, enemy)) {
+                    player.downgrade();
+                    if (gameOver) player.draw();  // 强制重绘确保cry图像显示
+                }
+            });
+
+            foods.forEach((food, index) => {
+                food.update();
+                food.draw();
+                if (checkCollision(player, food)) {
+                    player.powerUp = true;
+                    foods.splice(index, 1);
                 }
             });
 
@@ -167,16 +234,32 @@
             ctx.font = '20px Arial';
             ctx.fillText(`Score: ${score}`, 10, 30);
 
-            requestAnimationFrame(gameLoop);
+            if (!gameOver) requestAnimationFrame(gameLoop);
+            else showGameOver();
+        }
+
+        function checkCollision(obj1, obj2) {
+            return obj1.x < obj2.x + obj2.width && obj1.x + obj1.width > obj2.x &&
+                   obj1.y < obj2.y + obj2.height && obj1.y + obj1.height > obj2.y;
+        }
+
+        function showGameOver() {
+            ctx.fillStyle = 'red';
+            ctx.font = '40px Arial';
+            ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
         }
 
         setInterval(() => {
             enemies.push(new Enemy());
         }, ENEMY_SPAWN_TIME);
 
+        setInterval(() => {
+            if (Math.random() < 0.6) foods.push(new Food());
+        }, 5000);
+
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
-            if (e.key === ' ') {
+            if (e.key === ' ' && !gameOver) {
                 if (player.powerUp) {
                     bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
                     bullets.push(new Bullet(player.x + player.width / 2, player.y, 0));
