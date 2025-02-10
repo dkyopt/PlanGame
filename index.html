@@ -96,13 +96,14 @@
 
         const PLAYER_SPEED = 5;
         const BULLET_SPEED = 7;
-        const ENEMY_MIN_SPEED = 2;
-        const ENEMY_MAX_SPEED = 5;
+        let ENEMY_MIN_SPEED = 2;
+        let ENEMY_MAX_SPEED = 5;
         const ENEMY_SPAWN_TIME = 1000;
 
         let score = 0;
         let gameOver = false;
         let keys = {};
+        let foodCount = 0;
 
         const playerImg = new Image();
         playerImg.src = 'figures/player.png';
@@ -133,6 +134,7 @@
                 this.y = canvas.height - this.height - 10;
                 this.powerUp = false;
                 this.hitOnce = false;
+                this.extraLife = false;
                 this.image = playerImg;
                 this.cryDisplayed = false;
             }
@@ -151,7 +153,11 @@
             }
 
             downgrade() {
-                if (this.powerUp) {
+                if (this.extraLife) {
+                    this.extraLife = false;
+                    this.powerUp = false;
+                    foodCount = 0;
+                } else if (this.powerUp) {
                     this.powerUp = false;
                 } else if (!this.hitOnce) {
                     this.hitOnce = true;
@@ -182,6 +188,10 @@
                 this.y -= BULLET_SPEED;
                 if (this.direction === -1) this.x -= 2;
                 if (this.direction === 1) this.x += 2;
+                if (this.direction === -2) this.x -= 4;
+                if (this.direction === 2) this.x += 4;
+                if (this.direction === -3) this.x -= 6;
+                if (this.direction === 3) this.x += 6;
             }
         }
 
@@ -292,7 +302,14 @@
                 food.update();
                 food.draw();
                 if (checkCollision(player, food)) {
-                    player.powerUp = true;
+                    foodCount++;
+                    if (foodCount === 1) {
+                        player.powerUp = true;
+                    } else if (foodCount === 2) {
+                        player.extraLife = true;
+                    } else {
+                        score += 100;
+                    }
                     foods.splice(index, 1);
                 }
             });
@@ -321,8 +338,17 @@
         }, ENEMY_SPAWN_TIME);
 
         setInterval(() => {
-            if (Math.random() < 0.6) foods.push(new Food());
-        }, 5000);
+            if (Math.random() < 0.3) foods.push(new Food());
+        }, 7000);
+
+        setInterval(() => {
+            ENEMY_MIN_SPEED += 0.5;
+            ENEMY_MAX_SPEED += 0.5;
+            setTimeout(() => {
+                ENEMY_MIN_SPEED = 2;
+                ENEMY_MAX_SPEED = 5;
+            }, 180000);
+        }, 60000);
 
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
@@ -350,7 +376,15 @@
         document.getElementById('shoot').addEventListener('touchstart', () => shoot());
 
         function shoot() {
-            if (player.powerUp) {
+            if (foodCount >= 2) {
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, -3));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, -2));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, 0));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, 1));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, 2));
+                bullets.push(new Bullet(player.x + player.width / 2, player.y, 3));
+            } else if (player.powerUp) {
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, 0));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, 1));
