@@ -135,7 +135,6 @@
                 this.powerUp = false;
                 this.hitOnce = false;
                 this.extraLife = 0;
-this.invincible = false;
                 this.image = playerImg;
                 this.cryDisplayed = false;
             }
@@ -154,23 +153,10 @@ this.invincible = false;
             }
 
             downgrade() {
-    if (this.extraLife > 0) {
-        this.extraLife--;
-        this.powerUp = false;
-        foodCount = 0;
-        this.invincible = true;
-        setTimeout(() => this.invincible = false, 2000);
-    } else if (this.powerUp) {
-        this.powerUp = false;
-    } else if (!this.hitOnce) {
-        this.hitOnce = true;
-    } else {
-        if (!this.cryDisplayed) {
-            this.image = cryImg;
-            this.cryDisplayed = true;
-        }
-        gameOver = true;
-    }
+                if (this.extraLife > 0) {
+    this.extraLife--;
+    this.powerUp = false;
+    foodCount = 2;
 } else if (this.powerUp) {
                     this.powerUp = false;
                 } else if (!this.hitOnce) {
@@ -306,10 +292,10 @@ this.invincible = false;
                 if (enemy.exploding && enemy.explodeTimer <= 0) {
                     enemies.splice(index, 1);
                 }
-                if (checkCollision(player, enemy) && !player.invincible) {
-    player.downgrade();
-    if (gameOver) player.draw();
-}
+                if (checkCollision(player, enemy)) {
+                    player.downgrade();
+                    if (gameOver) player.draw();
+                }
             });
 
             foods.forEach((food, index) => {
