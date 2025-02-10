@@ -35,7 +35,7 @@
             grid-template-areas:
                 ". up ."
                 "left down right";
-            gap: 2px;
+            gap: 10px;
             justify-items: center;
             align-items: center;
         }
@@ -134,7 +134,7 @@
                 this.y = canvas.height - this.height - 10;
                 this.powerUp = false;
                 this.hitOnce = false;
-                this.extraLife = false;
+                this.extraLife = 0;
                 this.image = playerImg;
                 this.cryDisplayed = false;
             }
@@ -153,11 +153,11 @@
             }
 
             downgrade() {
-                if (this.extraLife) {
-                    this.extraLife = false;
-                    this.powerUp = false;
-                    foodCount = 0;
-                } else if (this.powerUp) {
+                if (this.extraLife > 0) {
+    this.extraLife--;
+    this.powerUp = false;
+    foodCount = 2;
+} else if (this.powerUp) {
                     this.powerUp = false;
                 } else if (!this.hitOnce) {
                     this.hitOnce = true;
@@ -306,8 +306,8 @@
                     if (foodCount === 1) {
                         player.powerUp = true;
                     } else if (foodCount === 2) {
-                        player.extraLife = true;
-                    } else {
+    player.extraLife = 1;
+} else {
                         score += 100;
                     }
                     foods.splice(index, 1);
