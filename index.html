@@ -84,6 +84,21 @@
 
     <audio id="backgroundMusic" src="audio/background.mp3" loop autoplay></audio>
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+        const music = document.getElementById('backgroundMusic');
+
+        // 尝试自动播放
+        music.play().catch(() => {
+            // 如果失败，等用户点击后播放
+            document.addEventListener('click', () => {
+                music.play();
+            }, { once: true });
+
+            document.addEventListener('touchstart', () => {
+                music.play();
+            }, { once: true });
+        });
+    });
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
