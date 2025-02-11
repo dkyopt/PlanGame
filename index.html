@@ -72,33 +72,32 @@
     </div>
     <div class="controls">
         <div class="direction-controls">
-            <div class="btn" id="up">🔼</div>
+            <div class="btn" id="up">💀</div>
             <div class="btn" id="left">◀️</div>
             <div class="btn" id="right">▶️</div>
-            <div class="btn" id="down">🔽</div>
+            <div class="btn" id="down">🔻</div>
         </div>
         <div class="shoot-control">
             <div class="btn" id="shoot">🔫</div>
         </div>
     </div>
 
-    <audio id="backgroundMusic" src="audio/background.mp3" loop autoplay></audio>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-        const music = document.getElementById('backgroundMusic');
+    <audio id="backgroundMusic" src="audio/background.mp3" loop></audio>
 
-        // 尝试自动播放
-        music.play().catch(() => {
-            // 如果失败，等用户点击后播放
+    <script>
+        // ============================== 音乐播放控制 ==============================
+        document.addEventListener('DOMContentLoaded', () => {
+            const music = document.getElementById('backgroundMusic');
+            // 需要用户交互后才能自动播放
             document.addEventListener('click', () => {
                 music.play();
             }, { once: true });
-
             document.addEventListener('touchstart', () => {
                 music.play();
             }, { once: true });
         });
-    });
+
+        // ============================== 画布 & 初始化 ==============================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -106,12 +105,13 @@
             canvas.width = document.getElementById('gameContainer').clientWidth;
             canvas.height = document.getElementById('gameContainer').clientHeight;
         }
-
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
+        // ============================== 常量 & 变量 ==============================
         const PLAYER_SPEED = 5;
         const BULLET_SPEED = 7;
+
         let ENEMY_MIN_SPEED = 2;
         let ENEMY_MAX_SPEED = 5;
         let ENEMY_SPAWN_TIME = 1000;
@@ -120,9 +120,12 @@
         let score = 0;
         let gameOver = false;
         let keys = {};
-        let foodCount = 0;
+
+        // 吃 food 计数（0 表示没吃，1 表示吃一次，2 表示吃两次，2+ 之后火力更强）
+        let foodCount = 0;  
         let cycleStartTime = Date.now();
 
+        // ============================== 载入图片 ==============================
         const playerImg = new Image();
         playerImg.src = 'figures/player.png';
 
@@ -138,24 +141,52 @@
         const enemyImg2 = new Image();
         enemyImg2.src = 'figures/enemy2.jpg';
 
+        // 新增 enemy3 / enemy4
+        const enemyImg3 = new Image();
+        enemyImg3.src = 'figures/enemy3.jpg';
+
+        const enemyImg4 = new Image();
+        enemyImg4.src = 'figures/enemy4.jpg';
+
         const boomImg = new Image();
         boomImg.src = 'figures/boom.jpg';
 
         const foodImg = new Image();
         foodImg.src = 'figures/food.jpg';
 
+        const lifeImg = new Image();
+        lifeImg.src = 'figures/life.jpg';
+
+        // 新增 angry 图、boss 图
+        const angryImg = new Image();
+        angryImg.src = 'figures/angry.jpg';
+
+        const bossImg = new Image();
+        bossImg.src = 'figures/boss.jpg';
+
+        // ============================== 定时器/数组 ==============================
+        let enemySpawnInterval;
+        const bullets = [];
+        const enemies = [];
+        const foods = [];
+        const lifes = [];
+        const bosses = []; // 用来存储 boss
+
+        // ============================== 类定义 ==============================
         class Player {
             constructor() {
                 this.width = 50;
                 this.height = 60;
                 this.x = canvas.width / 2 - this.width / 2;
                 this.y = canvas.height - this.height - 10;
-                this.powerUp = false;
-                this.hitOnce = false;
-                this.extraLife = 0;
+
+                this.powerUp = false;  // 是否火力加强（第一次吃 food）
+                this.hitOnce = false;  // 是否已经被打一次
+                this.extraLife = 0;    // 额外命
                 this.invincible = false;
-                this.image = playerImg;
                 this.cryDisplayed = false;
+
+                this.image = playerImg; // 默认图
             }
 
             draw() {
@@ -163,26 +194,34 @@
             }
 
             move() {
-                if (!gameOver) {
-                    if (keys['ArrowLeft'] && this.x > 0) this.x -= PLAYER_SPEED;
-                    if (keys['ArrowRight'] && this.x < canvas.width - this.width) this.x += PLAYER_SPEED;
-                    if (keys['ArrowUp'] && this.y > 0) this.y -= PLAYER_SPEED;
-                    if (keys['ArrowDown'] && this.y < canvas.height - this.height) this.y += PLAYER_SPEED;
-                }
+                if (gameOver) return;
+                if (keys['ArrowLeft'] && this.x > 0) this.x -= PLAYER_SPEED;
+                if (keys['ArrowRight'] && this.x < canvas.width - this.width) this.x += PLAYER_SPEED;
+                if (keys['ArrowUp'] && this.y > 0) this.y -= PLAYER_SPEED;
+                if (keys['ArrowDown'] && this.y < canvas.height - this.height) this.y += PLAYER_SPEED;
             }
 
             downgrade() {
                 if (this.extraLife > 0) {
+                    // 如果还有额外命，减一条额外命
                     this.extraLife--;
+                    // 失去额外命同时取消火力加强
                     this.powerUp = false;
                     foodCount = 0;
+                    this.image = playerImg; // 恢复成普通玩家图
+                    // 无敌保护 2 秒
                     this.invincible = true;
                     setTimeout(() => this.invincible = false, 2000);
                 } else if (this.powerUp) {
+                    // 如果只是在火力加强状态，则取消
                     this.powerUp = false;
+                    // 恢复普通图
+                    this.image = playerImg;
                 } else if (!this.hitOnce) {
+                    // 第一次被打，不游戏结束，但标记 hitOnce
                     this.hitOnce = true;
                 } else {
+                    // 第二次被打 => gameOver
                     if (!this.cryDisplayed) {
                         this.image = cryImg;
                         this.cryDisplayed = true;
@@ -198,7 +237,7 @@
                 this.y = y;
                 this.width = 10;
                 this.height = 20;
-                this.direction = direction;
+                this.direction = direction; // 子弹左右扩散方向
             }
 
             draw() {
@@ -207,34 +246,63 @@
 
             update() {
                 this.y -= BULLET_SPEED;
-                if (this.direction === -1) this.x -= 2;
-                if (this.direction === 1) this.x += 2;
-                if (this.direction === -2) this.x -= 4;
-                if (this.direction === 2) this.x += 4;
                 if (this.direction === -3) this.x -= 6;
-                if (this.direction === 3) this.x += 6;
+                if (this.direction === -2) this.x -= 4;
+                if (this.direction === -1) this.x -= 2;
+                if (this.direction === 1)  this.x += 2;
+                if (this.direction === 2)  this.x += 4;
+                if (this.direction === 3)  this.x += 6;
             }
         }
 
         class Enemy {
             constructor() {
-                const type = Math.random() > 0.3 ? enemyImg2 : enemyImg1; // Increase enemy2 frequency
-                this.image = type;
-                this.width = type === enemyImg1 ? 70 : 30;
-                this.height = type === enemyImg1 ? 85 : 35;
+                // 随机决定是哪一种敌机（1、2、3、4）
+                const rnd = Math.floor(Math.random() * 4);
+                switch (rnd) {
+                    case 0: // enemy1
+                        this.image = enemyImg1;
+                        this.width = 70;
+                        this.height = 85;
+                        this.health = 3 * ENEMY_HEALTH_MULTIPLIER;
+                        this.scoreValue = 20;
+                        break;
+                    case 1: // enemy2
+                        this.image = enemyImg2;
+                        this.width = 30;
+                        this.height = 35;
+                        this.health = 1 * ENEMY_HEALTH_MULTIPLIER;
+                        this.scoreValue = 5;
+                        break;
+                    case 2: // enemy3 (与 enemy2 同大小、血量、分值)
+                        this.image = enemyImg3;
+                        this.width = 30;
+                        this.height = 35;
+                        this.health = 1 * ENEMY_HEALTH_MULTIPLIER;
+                        this.scoreValue = 5;
+                        break;
+                    case 3: // enemy4 (与 enemy1 同大小、血量、分值)
+                    default:
+                        this.image = enemyImg4;
+                        this.width = 70;
+                        this.height = 85;
+                        this.health = 3 * ENEMY_HEALTH_MULTIPLIER;
+                        this.scoreValue = 20;
+                        break;
+                }
+
                 this.x = Math.random() * (canvas.width - this.width);
                 this.y = -this.height;
                 this.speedY = Math.random() * (ENEMY_MAX_SPEED - ENEMY_MIN_SPEED) + ENEMY_MIN_SPEED;
                 this.speedX = Math.random() > 0.5 ? 2 : -2;
-                this.health = (type === enemyImg1 ? 3 : 1) * ENEMY_HEALTH_MULTIPLIER;
-                this.scoreValue = type === enemyImg1 ? 20 : 5;
                 this.exploding = false;
                 this.explodeTimer = 10;
             }
 
             draw() {
                 if (this.exploding) {
-                    const size = this.width === 100 ? [100, 100] : [40, 40];
+                    // 爆炸动画
+                    const size = [this.width > 50 ? 100 : 40, this.width > 50 ? 100 : 40];
                     ctx.drawImage(boomImg, this.x, this.y, ...size);
                 } else {
                     ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
@@ -245,8 +313,13 @@
                 if (!this.exploding) {
                     this.y += this.speedY;
                     this.x += this.speedX;
-                    if (this.x <= 0 || this.x + this.width >= canvas.width) this.speedX *= -1;
-                    if (this.y > canvas.height) this.exploding = true;
+                    if (this.x <= 0 || this.x + this.width >= canvas.width) {
+                        this.speedX *= -1;
+                    }
+                    // 超过下边界后移除
+                    if (this.y > canvas.height) {
+                        this.exploding = true;
+                    }
                 } else {
                     this.explodeTimer--;
                 }
@@ -254,7 +327,9 @@
 
             hit() {
                 this.health--;
-                if (this.health <= 0) this.exploding = true;
+                if (this.health <= 0) {
+                    this.exploding = true;
+                }
             }
         }
 
@@ -275,25 +350,113 @@
             update() {
                 this.x += this.speedX;
                 this.y += this.speedY;
-                if (this.x <= 0 || this.x + this.width >= canvas.width) this.speedX *= -1;
-                if (this.y > canvas.height) foods.splice(foods.indexOf(this), 1);
+                if (this.x <= 0 || this.x + this.width >= canvas.width) {
+                    this.speedX *= -1;
+                }
+                if (this.y > canvas.height) {
+                    foods.splice(foods.indexOf(this), 1);
+                }
             }
         }
 
-        const player = new Player();
-        const bullets = [];
-        const enemies = [];
-        const foods = [];
+        class Life {
+            constructor() {
+                this.width = 30;
+                this.height = 30;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = -this.height; // 从顶部出现
+                this.speedX = 0;
+                this.speedY = 2;
+            }
 
+            draw() {
+                ctx.drawImage(lifeImg, this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                this.y += this.speedY;
+                if (this.y > canvas.height) {
+                    lifes.splice(lifes.indexOf(this), 1);
+                }
+            }
+        }
+
+        // ============================== Boss 类 ==============================
+        class Boss {
+            constructor() {
+                this.image = bossImg;
+                this.width = 150;
+                this.height = 150;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = -this.height;  // 从上方出现
+                this.health = 20;       // 需要 20 发子弹击中
+                this.speedX = (Math.random() > 0.5 ? 2 : -2); 
+                this.speedY = 2;        // 可以上下移动
+                this.exploding = false;
+                this.explodeTimer = 15;
+                this.scoreValue = 500;  // 击杀 boss 后的分数奖励（可自行设定）
+            }
+
+            draw() {
+                if (this.exploding) {
+                    // 爆炸尺寸更大一些
+                    ctx.drawImage(boomImg, this.x, this.y, 180, 180);
+                } else {
+                    ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+                }
+            }
+
+            update() {
+                if (!this.exploding) {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+
+                    // 左右边界反弹
+                    if (this.x <= 0 || this.x + this.width >= canvas.width) {
+                        this.speedX *= -1;
+                    }
+                    // 上下边界反弹（包括顶部和底部）
+                    if (this.y <= 0 || this.y + this.height >= canvas.height) {
+                        this.speedY *= -1;
+                    }
+                } else {
+                    this.explodeTimer--;
+                }
+            }
+
+            hit() {
+                this.health--;
+                if (this.health <= 0) {
+                    this.exploding = true;
+                }
+            }
+        }
+
+        // ============================== 实例化玩家 ==============================
+        const player = new Player();
+
+        // ============================== 敌机刷新 ==============================
+        function updateEnemySpawn() {
+            clearInterval(enemySpawnInterval);
+            enemySpawnInterval = setInterval(() => {
+                enemies.push(new Enemy());
+            }, ENEMY_SPAWN_TIME);
+        }
+
+        // ============================== 游戏主循环 ==============================
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 绘制玩家 & 移动
             player.draw();
             player.move();
 
+            // 2. 子弹更新 & 与敌机/boss 碰撞
             bullets.forEach((bullet, bulletIndex) => {
                 bullet.update();
                 bullet.draw();
 
+                // (a) 子弹与普通敌机的碰撞
                 enemies.forEach((enemy, enemyIndex) => {
                     if (checkCollision(bullet, enemy) && !enemy.exploding) {
                         enemy.hit();
@@ -304,30 +467,68 @@
                     }
                 });
 
-                if (bullet.y + bullet.height < 0) bullets.splice(bulletIndex, 1);
+                // (b) 子弹与 boss 的碰撞
+                bosses.forEach((boss, bossIndex) => {
+                    if (checkCollision(bullet, boss) && !boss.exploding) {
+                        boss.hit();
+                        bullets.splice(bulletIndex, 1);
+                        if (boss.exploding) {
+                            // boss 爆炸开始时先加分
+                            score += boss.scoreValue;
+                        }
+                    }
+                });
+
+                // (c) 子弹飞出屏幕则移除
+                if (bullet.y + bullet.height < 0) {
+                    bullets.splice(bulletIndex, 1);
+                }
             });
 
+            // 3. 敌机更新 & 碰撞
             enemies.forEach((enemy, index) => {
                 enemy.update();
                 enemy.draw();
+                // 爆炸结束后移除
                 if (enemy.exploding && enemy.explodeTimer <= 0) {
                     enemies.splice(index, 1);
                 }
-                if (checkCollision(player, enemy) && !player.invincible) {
+                // 与玩家碰撞
+                if (!player.invincible && checkCollision(player, enemy)) {
                     player.downgrade();
                     if (gameOver) player.draw();
                 }
             });
 
+            // 4. boss 更新 & 碰撞
+            bosses.forEach((boss, index) => {
+                boss.update();
+                boss.draw();
+                // boss 爆炸结束后移除
+                if (boss.exploding && boss.explodeTimer <= 0) {
+                    bosses.splice(index, 1);
+                }
+                // 与玩家碰撞
+                if (!player.invincible && checkCollision(player, boss) && !boss.exploding) {
+                    player.downgrade();
+                    if (gameOver) player.draw();
+                }
+            });
+
+            // 5. food（火力道具）更新 & 碰撞
             foods.forEach((food, index) => {
                 food.update();
                 food.draw();
                 if (checkCollision(player, food)) {
                     foodCount++;
+                    // 第一次吃 food => powerUp = true
+                    // 第二次吃 food => 加命 + 更换玩家图片为 angry
+                    // 第三次及以上 => +100 分
                     if (foodCount === 1) {
                         player.powerUp = true;
                     } else if (foodCount === 2) {
                         player.extraLife = 1;
+                        player.image = angryImg; // 换成 angry
                     } else {
                         score += 100;
                     }
@@ -335,17 +536,37 @@
                 }
             });
 
+            // 6. life（加命道具）更新 & 碰撞
+            lifes.forEach((lifeItem, index) => {
+                lifeItem.update();
+                lifeItem.draw();
+                if (checkCollision(player, lifeItem)) {
+                    player.extraLife++;
+                    lifes.splice(index, 1);
+                }
+            });
+
+            // 7. 显示分数和生命
             ctx.fillStyle = 'white';
             ctx.font = '20px Arial';
             ctx.fillText(`Score: ${score}`, 10, 30);
+            ctx.fillText(`Life: ${player.extraLife + 1}`, 10, 60);
 
-            if (!gameOver) requestAnimationFrame(gameLoop);
-            else showGameOver();
+            // 8. 判断游戏是否结束
+            if (!gameOver) {
+                requestAnimationFrame(gameLoop);
+            } else {
+                showGameOver();
+            }
         }
 
         function checkCollision(obj1, obj2) {
-            return obj1.x < obj2.x + obj2.width && obj1.x + obj1.width > obj2.x &&
-                   obj1.y < obj2.y + obj2.height && obj1.y + obj1.height > obj2.y;
+            return (
+                obj1.x < obj2.x + obj2.width &&
+                obj1.x + obj1.width > obj2.x &&
+                obj1.y < obj2.y + obj2.height &&
+                obj1.y + obj2.height > obj2.y
+            );
         }
 
         function showGameOver() {
@@ -354,34 +575,75 @@
             ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
         }
 
+        // ============================== 食物 & 生命道具的定时生成 ==============================
         setInterval(() => {
-            enemies.push(new Enemy());
-        }, ENEMY_SPAWN_TIME);
+            if (Math.random() < 0.3) {
+                foods.push(new Food());
+            }
+        }, 60000);
 
         setInterval(() => {
-            if (Math.random() < 0.3) foods.push(new Food());
-        }, 7000);
+            if (Math.random() < 0.1) {
+                lifes.push(new Life());
+            }
+        }, 30000);
 
+        // ============================== 每秒更新难度 (4段循环) ==============================
         setInterval(() => {
             const elapsed = (Date.now() - cycleStartTime) / 1000;
 
-            if (elapsed % 240 < 60) { // Increase speed and spawn rate every minute for 4-minute cycle
+            // 4段难度循环（60秒为一个阶段，共 4 阶段 = 240秒）
+            if (elapsed % 240 < 60) {
                 ENEMY_MIN_SPEED = 3;
-                ENEMY_MAX_SPEED = 7.5;
-                ENEMY_SPAWN_TIME = 667; // 150% spawn rate
-            } else if (elapsed % 240 >= 60 && elapsed % 240 < 240) {
-                ENEMY_MIN_SPEED = 2;
-                ENEMY_MAX_SPEED = 5;
-                ENEMY_SPAWN_TIME = 1000;
+                ENEMY_MAX_SPEED = 6;
+                ENEMY_SPAWN_TIME = 700;
+            } else if (elapsed % 240 < 120) {
+                ENEMY_MIN_SPEED = 4.5;
+                ENEMY_MAX_SPEED = 9;
+                ENEMY_SPAWN_TIME = 500;
+            } else if (elapsed % 240 < 180) {
+                ENEMY_MIN_SPEED = 6.75;
+                ENEMY_MAX_SPEED = 13.5;
+                ENEMY_SPAWN_TIME = 350;
+            } else if (elapsed % 240 < 240) {
+                ENEMY_MIN_SPEED = 10;
+                ENEMY_MAX_SPEED = 20;
+                ENEMY_SPAWN_TIME = 200;
             }
 
-            if (elapsed % 480 >= 240 && elapsed % 480 < 480) { // Increase health every 4 minutes, reset after 8 minutes
+            // 切换血量倍数
+            if (elapsed % 480 >= 240) {
                 ENEMY_HEALTH_MULTIPLIER = 2;
             } else {
                 ENEMY_HEALTH_MULTIPLIER = 1;
             }
+
+            // 刷新小怪生成间隔
+            updateEnemySpawn();
         }, 1000);
 
+        // ============================== 每 4 分钟刷一个 BOSS ==============================
+        let bossActive = false; // 表示当前屏幕上是否已有 boss
+        function spawnBoss() {
+            // 只有当场上没有 boss 时，才生成一个新的
+            if (!bossActive) {
+                bosses.push(new Boss());
+                bossActive = true;
+            }
+        }
+
+        // 监控 bosses 数组，有 boss 爆炸结束就说明死了，可以再刷下一个
+        // 放在主循环或定时器里都可以，这里在主循环更方便
+        // 不过这里为了简化，每次 frame 都判断下：
+        // 如果 bosses[] 为空，说明没有 boss 了，令 bossActive = false
+        // （在 gameLoop 里添加）
+        // 见 gameLoop => 当 boss explodTimer <= 0 后 splice 掉 => 数组长度为 0 => bossActive = false
+        // 下面这个定时器专门负责每 4 分钟触发 spawnBoss()
+        setInterval(() => {
+            spawnBoss();
+        }, 240000); // 240000ms = 240s = 4分钟
+
+        // ============================== 游戏控制（键盘/触屏） ==============================
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (e.key === ' ' && !gameOver) {
@@ -407,8 +669,10 @@
 
         document.getElementById('shoot').addEventListener('touchstart', () => shoot());
 
+        // ============================== 射击函数 ==============================
         function shoot() {
             if (foodCount >= 2) {
+                // 超级火力
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -3));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -2));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
@@ -417,15 +681,27 @@
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, 2));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, 3));
             } else if (player.powerUp) {
+                // 三向火力
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, 0));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, 1));
             } else {
+                // 普通火力
                 bullets.push(new Bullet(player.x + player.width / 2, player.y));
             }
         }
 
+        // ============================== 启动游戏 ==============================
+        updateEnemySpawn();
         gameLoop();
+
+        // 在 gameLoop 最后阶段，检测 boss 是否都死亡
+        // 可以在 gameLoop 中 enemies/bosses 更新完之后：
+        const originalGameLoop = gameLoop;
+        // 这里是示例，如果想把 bossActive 判断写进上面 gameLoop 的逻辑中，
+        // 可以在 "bosses.forEach((boss, index) => {...})" 之后补充：
+        //     if (bosses.length === 0) bossActive = false;
+        // 这样当 boss 全死后，bossActive = false，就能等待下一次 4 分钟刷新的到来。
     </script>
 </body>
 </html>
