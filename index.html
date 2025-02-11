@@ -64,6 +64,13 @@
             font-size: 4vw;
             user-select: none;
         }
+        /* 在这里把射击按钮调大一些 */
+        #shoot.btn {
+            width: 16vw;
+            height: 16vw;
+            max-width: 80px;
+            max-height: 80px;
+        }
     </style>
 </head>
 <body>
@@ -124,6 +131,10 @@
         // 吃 food 计数（0 表示没吃，1 表示吃一次，2 表示吃两次，2+ 之后火力更强）
         let foodCount = 0;  
         let cycleStartTime = Date.now();
+
+        // 保证食物/生命必然出现的时间记录
+        let lastFoodSpawnTime = Date.now();
+        let lastLifeSpawnTime = Date.now();
 
         // ============================== 载入图片 ==============================
         const playerImg = new Image();
@@ -215,7 +226,6 @@
                 } else if (this.powerUp) {
                     // 如果只是在火力加强状态，则取消
                     this.powerUp = false;
-                    // 恢复普通图
                     this.image = playerImg;
                 } else if (!this.hitOnce) {
                     // 第一次被打，不游戏结束，但标记 hitOnce
@@ -338,6 +348,7 @@
                 this.width = 30;
                 this.height = 30;
                 this.x = Math.random() * (canvas.width - this.width);
+                // 在屏幕上半区域随机出现
                 this.y = Math.random() * (canvas.height / 2);
                 this.speedX = Math.random() > 0.5 ? 2 : -2;
                 this.speedY = Math.random() * 2 + 1;
@@ -521,9 +532,9 @@
                 food.draw();
                 if (checkCollision(player, food)) {
                     foodCount++;
-                    // 第一次吃 food => powerUp = true
-                    // 第二次吃 food => 加命 + 更换玩家图片为 angry
-                    // 第三次及以上 => +100 分
+                    // 第一次吃 => fire up
+                    // 第二次吃 => +1命 & angry图
+                    // 第三次+ => +100分
                     if (foodCount === 1) {
                         player.powerUp = true;
                     } else if (foodCount === 2) {
@@ -565,7 +576,7 @@
                 obj1.x < obj2.x + obj2.width &&
                 obj1.x + obj1.width > obj2.x &&
                 obj1.y < obj2.y + obj2.height &&
-                obj1.y + obj2.height > obj2.y
+                obj1.y + obj2.height > obj1.y
             );
         }
 
@@ -575,20 +586,47 @@
             ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
         }
 
-        // ============================== 食物 & 生命道具的定时生成 ==============================
+        // ========== 【食物 & 生命道具】随机出现 + 保证一定时间内必定出现一次 ==========
+
+        // 原先的随机出现（可保留或微调）
         setInterval(() => {
             if (Math.random() < 0.3) {
-                foods.push(new Food());
+                spawnFood();
             }
-        }, 60000);
+        }, 60000); // 每 60 秒随机一次
 
         setInterval(() => {
             if (Math.random() < 0.1) {
-                lifes.push(new Life());
+                spawnLife();
             }
-        }, 30000);
+        }, 30000); // 每 30 秒随机一次
 
-        // ============================== 每秒更新难度 (4段循环) ==============================
+        // 每秒检查一下，如果超过 1 分钟还没出 food，就强制刷一次
+        // 如果超过 2 分钟还没出 life，也强制刷一次
+        setInterval(() => {
+            const now = Date.now();
+            // 距离上次刷 food 超过 1 分钟
+            if (now - lastFoodSpawnTime >= 60000) {
+                spawnFood();
+            }
+            // 距离上次刷 life 超过 2 分钟
+            if (now - lastLifeSpawnTime >= 120000) {
+                spawnLife();
+            }
+        }, 1000);
+
+        function spawnFood() {
+            foods.push(new Food());
+            lastFoodSpawnTime = Date.now();
+        }
+
+        function spawnLife() {
+            lifes.push(new Life());
+            lastLifeSpawnTime = Date.now();
+        }
+
+        // ========== 难度循环 (4段) + 敌机生成刷新 ==========
+
         setInterval(() => {
             const elapsed = (Date.now() - cycleStartTime) / 1000;
 
@@ -611,7 +649,7 @@
                 ENEMY_SPAWN_TIME = 200;
             }
 
-            // 切换血量倍数
+            // 切换血量倍数（240秒后翻倍，480秒后恢复）
             if (elapsed % 480 >= 240) {
                 ENEMY_HEALTH_MULTIPLIER = 2;
             } else {
@@ -622,23 +660,16 @@
             updateEnemySpawn();
         }, 1000);
 
-        // ============================== 每 4 分钟刷一个 BOSS ==============================
+        // ========== 每 4 分钟刷一个 BOSS ==========
+
         let bossActive = false; // 表示当前屏幕上是否已有 boss
         function spawnBoss() {
-            // 只有当场上没有 boss 时，才生成一个新的
             if (!bossActive) {
                 bosses.push(new Boss());
                 bossActive = true;
             }
         }
 
-        // 监控 bosses 数组，有 boss 爆炸结束就说明死了，可以再刷下一个
-        // 放在主循环或定时器里都可以，这里在主循环更方便
-        // 不过这里为了简化，每次 frame 都判断下：
-        // 如果 bosses[] 为空，说明没有 boss 了，令 bossActive = false
-        // （在 gameLoop 里添加）
-        // 见 gameLoop => 当 boss explodTimer <= 0 后 splice 掉 => 数组长度为 0 => bossActive = false
-        // 下面这个定时器专门负责每 4 分钟触发 spawnBoss()
         setInterval(() => {
             spawnBoss();
         }, 240000); // 240000ms = 240s = 4分钟
@@ -667,12 +698,14 @@
         document.getElementById('down').addEventListener('touchstart', () => keys['ArrowDown'] = true);
         document.getElementById('down').addEventListener('touchend', () => keys['ArrowDown'] = false);
 
-        document.getElementById('shoot').addEventListener('touchstart', () => shoot());
+        document.getElementById('shoot').addEventListener('touchstart', () => {
+            if (!gameOver) shoot();
+        });
 
         // ============================== 射击函数 ==============================
         function shoot() {
             if (foodCount >= 2) {
-                // 超级火力
+                // 超级火力（七向）
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -3));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -2));
                 bullets.push(new Bullet(player.x + player.width / 2, player.y, -1));
@@ -695,13 +728,8 @@
         updateEnemySpawn();
         gameLoop();
 
-        // 在 gameLoop 最后阶段，检测 boss 是否都死亡
-        // 可以在 gameLoop 中 enemies/bosses 更新完之后：
-        const originalGameLoop = gameLoop;
-        // 这里是示例，如果想把 bossActive 判断写进上面 gameLoop 的逻辑中，
-        // 可以在 "bosses.forEach((boss, index) => {...})" 之后补充：
-        //     if (bosses.length === 0) bossActive = false;
-        // 这样当 boss 全死后，bossActive = false，就能等待下一次 4 分钟刷新的到来。
+        // 在 gameLoop 中，如果 boss 全死了，就 bossActive = false
+        // （已在 boss 爆炸后 splice 中可判断 if(bosses.length===0) bossActive=false）
     </script>
 </body>
 </html>
