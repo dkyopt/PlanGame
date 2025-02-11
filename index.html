@@ -663,16 +663,31 @@
         // ========== 每 4 分钟刷一个 BOSS ==========
 
         let bossActive = false; // 表示当前屏幕上是否已有 boss
+        let bossSpawnCount = 0; // 记录已经刷了几次 boss
         function spawnBoss() {
+            // 如果屏幕上已经有 Boss，就不再生成新的
             if (!bossActive) {
-                bosses.push(new Boss());
                 bossActive = true;
+                bossSpawnCount++; // 每出现一次 Boss，就加 1
+
+                // 第 1~4 次分别对应不同速度，然后循环
+                const cycleIndex = (bossSpawnCount - 1) % 4;
+                let speedFactor;
+                switch (cycleIndex) {
+                    case 0: speedFactor = 1; break; // 第一次最慢
+                    case 1: speedFactor = 2; break; // 第二次中速
+                    case 2: speedFactor = 3; break; // 第三次更快
+                    case 3: speedFactor = 4; break; // 第四次最快
+                }
+
+                // 将 speedFactor 传给 Boss 构造函数
+                bosses.push(new Boss(speedFactor));
             }
         }
 
         setInterval(() => {
             spawnBoss();
-        }, 240000); // 240000ms = 240s = 4分钟
+        }, 120000); // 120000ms = 120s = 2分钟
 
         // ============================== 游戏控制（键盘/触屏） ==============================
         window.addEventListener('keydown', (e) => {
