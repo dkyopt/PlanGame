@@ -393,24 +393,31 @@
         }
 
         // ============================== Boss 类 ==============================
+        // ============================== Boss 类 (仅修改这部分) ==============================
         class Boss {
             constructor() {
                 this.image = bossImg;
                 this.width = 150;
                 this.height = 150;
+                // 初始位置：随机左右
                 this.x = Math.random() * (canvas.width - this.width);
-                this.y = -this.height;  // 从上方出现
-                this.health = 20;       // 需要 20 发子弹击中
-                this.speedX = (Math.random() > 0.5 ? 2 : -2); 
-                this.speedY = 2;        // 可以上下移动
+                // 依旧从上方出现，你可以视需求改成其他位置
+                this.y = -this.height;
+                
+                this.health = 20;  // Boss 血量 20
+
+                // speedX、speedY 都随机正或负，使其能上下左右移动
+                this.speedX = (Math.random() > 0.5 ? 2 : -2);
+                this.speedY = (Math.random() > 0.5 ? 2 : -2);
+
                 this.exploding = false;
                 this.explodeTimer = 15;
-                this.scoreValue = 500;  // 击杀 boss 后的分数奖励（可自行设定）
+                this.scoreValue = 500;  // 击杀 Boss 后的分数
             }
 
             draw() {
                 if (this.exploding) {
-                    // 爆炸尺寸更大一些
+                    // 爆炸时图像稍大些
                     ctx.drawImage(boomImg, this.x, this.y, 180, 180);
                 } else {
                     ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
@@ -419,14 +426,15 @@
 
             update() {
                 if (!this.exploding) {
+                    // X / Y 均随 speedX / speedY 移动
                     this.x += this.speedX;
                     this.y += this.speedY;
 
-                    // 左右边界反弹
+                    // 左右边界检测，若触碰就反弹
                     if (this.x <= 0 || this.x + this.width >= canvas.width) {
                         this.speedX *= -1;
                     }
-                    // 上下边界反弹（包括顶部和底部）
+                    // 上下边界检测，若触碰就反弹
                     if (this.y <= 0 || this.y + this.height >= canvas.height) {
                         this.speedY *= -1;
                     }
@@ -442,6 +450,7 @@
                 }
             }
         }
+
 
         // ============================== 实例化玩家 ==============================
         const player = new Player();
